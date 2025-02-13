@@ -1,6 +1,5 @@
-## e-school
+## basecode elysia backend
 
-School management (report card generation, absence and payment tracking, notification system and more...)
 
 ### Stack 📚
 
@@ -8,11 +7,7 @@ School management (report card generation, absence and payment tracking, notific
 - Prisma
 - PostgreSQL
 
-### Deploy 🚀
 
-```shell
-https://e-school-a85e.onrender.com/
-```
 
 ### Endpoints 📡
 

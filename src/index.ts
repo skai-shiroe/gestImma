@@ -5,9 +5,6 @@ import { authRoutes } from "./route";
 const app = new Elysia()
   .use(swagger())
   .use(authRoutes)
-  .get("/", () => "e-school api v0")
+  .get("/", () => "Dashbord")
   .listen(3000);
-
-console.log(
-  `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`
-);
+  console.log('Swagger UI disponible sur http://localhost:3000/swagger')
