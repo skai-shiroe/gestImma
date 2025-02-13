@@ -1,0 +1,21 @@
+{
+  "name": "apikit",
+  "version": "1.0.50",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "bun run --watch src/index.ts",
+    "prisma:push": "bunx prisma db push",
+    "start": "NODE_ENV=production bun src/index.ts"
+  },
+  "dependencies": {
+    "@elysiajs/jwt": "^1.2.0",
+    "@elysiajs/swagger": "^1.2.0",
+    "@prisma/client": "^6.2.1",
+    "elysia": "latest"
+  },
+  "devDependencies": {
+    "bun-types": "latest",
+    "prisma": "6.2.1"
+  },
+  "module": "src/index.js"
+}
