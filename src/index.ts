@@ -2,7 +2,7 @@ import { Elysia } from "elysia";
 import { swagger } from "@elysiajs/swagger";
 import { authRoutes } from "./route";
 
-const app = new Elysia()
+export const app = new Elysia()
   .use(swagger())
   .use(authRoutes)
   .get("/", () => "Dashbord")

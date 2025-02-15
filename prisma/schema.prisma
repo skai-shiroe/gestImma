@@ -16,7 +16,10 @@ datasource db {
 
 enum UserRole {
   User
+  User2
+  User3
   Admin
+  SuperAdmin
 }
 
 model User {
@@ -27,6 +30,7 @@ model User {
   location     Json?
   isAdult      Boolean   @default(false)
   isOnline     Boolean?  @default(false)
+  isActive     Boolean?  @default(true)
   role         UserRole? @default(User)
   refreshToken String?
   createdAt    DateTime  @default(now())
