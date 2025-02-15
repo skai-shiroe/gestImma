@@ -12,7 +12,8 @@
     "@elysiajs/swagger": "^1.2.0",
     "@prisma/client": "^6.2.1",
     "dotenv": "^16.4.7",
-    "elysia": "latest"
+    "elysia": "latest",
+    "resend": "^4.1.2"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",

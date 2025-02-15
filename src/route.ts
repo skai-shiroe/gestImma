@@ -11,6 +11,9 @@ import {
 import { getExpTimestamp } from "./lib/util";
 import { authPlugin } from "./plugin";
 import { UserRole } from "@prisma/client";
+import { sendResetPasswordEmail } from "./lib/email";
+import { v4 as uuidv4 } from "uuid";
+import { addHours } from "date-fns";
 
 export const authRoutes = new Elysia({ prefix: "api/auth" })
   .use(
@@ -458,5 +461,93 @@ authRoutes.delete("/delete", async ({ user }) => {
   };
 });
 
+// mot de passe oublie
+authRoutes.post(
+  "/forgot-password",
+  async ({ body, set }) => {
+    const { email } = body;
 
+    // Vérifie si l'utilisateur existe
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      set.status = "NotFound";
+      throw new Error("Aucun utilisateur trouvé avec cet e-mail.");
+    }
+
+    // Génère un token de réinitialisation
+    const resetToken = uuidv4();
+    const resetTokenExpires = addHours(new Date(), 1); // Token valide pendant 1 heure
+
+    // Enregistre le token dans la base de données
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        resetPasswordToken: resetToken,
+        resetPasswordExpires: resetTokenExpires,
+      },
+    });
+
+    // Envoie un e-mail avec le lien de réinitialisation
+    await sendResetPasswordEmail(user.email, resetToken);
+
+    return {
+      message: "Un e-mail de réinitialisation a été envoyé.",
+    };
+  },
+  {
+    body: t.Object({
+      email: t.String({ format: "email" }),
+    }),
+  }
+)
+
+// reinitialiser mot de passe
+authRoutes.post(
+  "/reset-password",
+  async ({ body, set }) => {
+    const { token, newPassword } = body;
+
+    // Trouve l'utilisateur avec le token valide
+    const user = await prisma.user.findFirst({
+      where: {
+        resetPasswordToken: token,
+        resetPasswordExpires: { gt: new Date() }, // Vérifie que le token n'a pas expiré
+      },
+    });
+
+    if (!user) {
+      set.status = "Bad Request";
+      throw new Error("Token invalide ou expiré.");
+    }
+
+    // Hache le nouveau mot de passe
+    const hashedPassword = await Bun.password.hash(newPassword, {
+      algorithm: "bcrypt",
+      cost: 10,
+    });
+
+    // Met à jour le mot de passe et efface le token
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        resetPasswordToken: null,
+        resetPasswordExpires: null,
+      },
+    });
+
+    return {
+      message: "Mot de passe réinitialisé avec succès.",
+    };
+  },
+  {
+    body: t.Object({
+      token: t.String(), // Token de réinitialisation
+      newPassword: t.String({ minLength: 8 }), // Nouveau mot de passe
+    }),
+  }
+);
 
