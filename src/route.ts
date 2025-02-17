@@ -461,7 +461,7 @@ authRoutes.delete("/delete", async ({ user }) => {
   };
 });
 
-// mot de passe oublie
+// mot de passe oublie | Envoie un email.
 authRoutes.post(
   "/forgot-password",
   async ({ body, set }) => {

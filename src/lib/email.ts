@@ -13,7 +13,7 @@ export const sendResetPasswordEmail = async (email: string, token: string) => {
 
   try {
     const info = await transporter.sendMail({
-      from: `"Support" <${Bun.env.EMAIL_USER}>`, // Expéditeur
+      from: `"Skai backend support" <${Bun.env.EMAIL_USER}>`, // Expéditeur
       to: email, // Destinataire
       subject: "Réinitialisation de votre mot de passe",
       html: `<p>Pour réinitialiser votre mot de passe, cliquez sur ce lien : <a href="${resetUrl}">${resetUrl}</a></p>`,
