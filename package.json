@@ -13,10 +13,12 @@
     "@prisma/client": "^6.2.1",
     "dotenv": "^16.4.7",
     "elysia": "latest",
+    "nodemailer": "^6.10.0",
     "resend": "^4.1.2"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
+    "@types/nodemailer": "^6.4.17",
     "@types/pg": "^8.11.11",
     "@types/supertest": "^6.0.2",
     "bun-types": "latest",

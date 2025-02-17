@@ -473,7 +473,7 @@ authRoutes.post(
     });
 
     if (!user) {
-      set.status = "NotFound";
+      set.status = "Not Found";
       throw new Error("Aucun utilisateur trouvé avec cet e-mail.");
     }
 
