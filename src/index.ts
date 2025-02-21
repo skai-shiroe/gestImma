@@ -1,6 +1,6 @@
 import { Elysia } from "elysia";
 import { swagger } from "@elysiajs/swagger";
-import { authRoutes } from "./route";
+import { authRoutes } from "./routes/authRoutes";
 
 export const app = new Elysia()
   .use(swagger())

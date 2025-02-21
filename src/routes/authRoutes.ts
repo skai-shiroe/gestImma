@@ -1,19 +1,21 @@
 import { Elysia, t } from "elysia";
-import { loginBodySchema, signupBodySchema } from "./schema";
-import { prisma } from "./lib/prisma";
-import { reverseGeocodingAPI } from "./lib/geoapify";
+import { loginBodySchema, signupBodySchema } from "../schema";
+import { prisma } from "../lib/prisma";
+import { reverseGeocodingAPI } from "../lib/geoapify";
 import { jwt } from "@elysiajs/jwt";
 import {
   ACCESS_TOKEN_EXP,
   JWT_NAME,
   REFRESH_TOKEN_EXP,
-} from "./config/constant";
-import { getExpTimestamp } from "./lib/util";
-import { authPlugin } from "./plugin";
+} from "../config/constant";
+import { getExpTimestamp } from "../lib/util";
+import { authPlugin } from "../plugin";
 import { UserRole } from "@prisma/client";
-import { sendResetPasswordEmail } from "./lib/email";
+import { sendResetPasswordEmail } from "../lib/email";
 import { v4 as uuidv4 } from "uuid";
 import { addHours } from "date-fns";
+import { checkPermission } from "../middleware/permissionMiddleware";
+import { PERMISSIONS } from "../lib/permissions";
 
 export const authRoutes = new Elysia({ prefix: "api/auth" })
   .use(
@@ -278,6 +280,7 @@ export const authRoutes = new Elysia({ prefix: "api/auth" })
         location: t.Optional(t.Tuple([t.Number(), t.Number()])),
         isAdult: t.Optional(t.Boolean()),
       }),
+      beforeHandle: checkPermission(PERMISSIONS.UPDATE_OWN_PROFILE),
     }
   );
 
@@ -318,6 +321,7 @@ authRoutes.put(
       oldPassword: t.String(),
       newPassword: t.String({ minLength: 8 }),
     }),
+    beforeHandle: checkPermission(PERMISSIONS.UPDATE_OWN_PASSWORD),
   }
 );
 
@@ -348,6 +352,7 @@ authRoutes.put(
     body: t.Object({
       role: t.Enum(UserRole),
     }),
+    beforeHandle: checkPermission(PERMISSIONS.UPDATE_USER_ROLE),
   }
 );
 
@@ -379,45 +384,57 @@ authRoutes
       body: t.Object({
         isActive: t.Boolean(),
       }),
+      beforeHandle: checkPermission(PERMISSIONS.UPDATE_USER_STATUS),
     }
   )
 
 // afficher info user
-  .get("/me", ({ user }) => {
+.get(
+  "/me",
+  ({ user }) => {
     return {
-      message: "Fetch current user",
+      message: "Informations de l'utilisateur récupérées avec succès",
       data: {
         user,
       },
     };
-  })
+  },
+  {
+    beforeHandle: checkPermission(PERMISSIONS.READ_OWN_PROFILE),
+  }
+)
 
 //Récupération de Tous les Utilisateurs (Admin)
-authRoutes.get("/allusers", async ({ user, set }) => {
+.get(
+  "/allusers",
+  async ({ user, set }) => {
+    // Vérification du rôle de l'utilisateur
+    if (user.role !== "Admin") {
+      set.status = "Forbidden";
+      throw new Error("Seul un administrateur peut récupérer la liste des utilisateurs");
+    }
 
-   // Vérifie que l'utilisateur connecté est un Admin
-   if (user.role !== "Admin") {
-    set.status = "Forbidden"; // Statut HTTP 403
-    throw new Error("Seul un administrateur peut récupérer la liste des utilisateurs");
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        isOnline: true,
+        createdAt: true,
+      },
+    });
+
+    return {
+      message: "Liste des utilisateurs récupérée avec succès",
+      data: {
+        users,
+      },
+    };
+  },
+  {
+    beforeHandle: checkPermission(PERMISSIONS.READ_ALL_USERS),
   }
-
-  const users = await prisma.user.findMany({
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      isOnline: true,
-      createdAt: true,
-    },
-  });
-
-  return {
-    message: "Liste des utilisateurs récupérée avec succès",
-    data: {
-      users,
-    },
-  };
-})
+)
 
 // Récupération de l'utilisateur par ID (Admin)
 authRoutes.get("/users/:id", async ({ params, user, set }) => {
@@ -448,7 +465,11 @@ authRoutes.get("/users/:id", async ({ params, user, set }) => {
       user:userData,
     },
   };
-})
+},
+{
+  beforeHandle: checkPermission(PERMISSIONS.READ_USER),
+}
+)
 
 // supprimer son compte
 authRoutes.delete("/delete", async ({ user }) => {
@@ -459,7 +480,9 @@ authRoutes.delete("/delete", async ({ user }) => {
   return {
     message: "Compte supprimé avec succès",
   };
-});
+},
+
+);
 
 // mot de passe oublie | Envoie un email.
 authRoutes.post(
