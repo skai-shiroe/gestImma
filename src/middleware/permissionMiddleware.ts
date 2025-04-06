@@ -1,19 +1,29 @@
-import { User, UserRole } from '@prisma/client';
-import { ROLE_PERMISSIONS } from '../lib/roles';
+import { prisma } from "../lib/prisma";
 
 export const checkPermission = (requiredPermission: string) => {
-  return async ({ user, set }: { user: User; set: any }) => {
+  return async ({ user, set }: { user: any; set: any }) => {
     if (!user) {
-      set.status = 'Unauthorized';
-      throw new Error('Utilisateur non authentifié');
+      set.status = "Unauthorized";
+      throw new Error("Utilisateur non authentifié");
     }
 
-    // Ici, on utilise user.role comme clé pour accéder à ROLE_PERMISSIONS
-    const userPermissions = ROLE_PERMISSIONS[user.role as UserRole];
+    // Récupérer les permissions de l'utilisateur en fonction de son rôle
+    const rolePermissions = await prisma.rolePermission.findMany({
+      where: {
+        roleId: user.roleId,
+        isActive: true,
+      },
+      include: {
+        permission: true,
+      },
+    });
 
-    if (!userPermissions || !userPermissions.includes(requiredPermission)) {
-      set.status = 'Forbidden';
-      throw new Error('Permission refusée');
+    const userPermissions = rolePermissions.map((rp) => rp.permission.name);
+
+    // Vérifier si l'utilisateur a la permission requise
+    if (!userPermissions.includes(requiredPermission)) {
+      set.status = "Forbidden";
+      throw new Error("Permission refusée");
     }
   };
 };

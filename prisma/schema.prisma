@@ -6,7 +6,6 @@
 
 generator client {
   provider = "prisma-client-js"
-  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
@@ -14,27 +13,63 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum UserRole {
-  User
-  User2
-  User3
-  Admin
-  SuperAdmin
-}
-
 model User {
   id           String    @id @default(uuid())
   name         String    @db.VarChar(60)
   email        String    @unique
   password     String
-  location     Json?
   isAdult      Boolean   @default(false)
   isOnline     Boolean?  @default(false)
   isActive     Boolean?  @default(true)
-  role         UserRole? @default(User)
   refreshToken String?
   resetPasswordToken   String?  
   resetPasswordExpires DateTime? 
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  roleId       String?   // Référence au rôle
+  Role         Role?     @relation(fields: [roleId], references: [id]) // Relation avec la table Role
+}
+
+model Role {
+  id          String         @id @default(uuid())
+  name        String         @unique
+  description String?
+  users       User[]         // Relation avec la table User
+  permissions RolePermission[] // Relation avec la table RolePermission
+}
+
+model Permission {
+  id          String         @id @default(uuid())
+  name        String         @unique
+  description String?
+  roles       RolePermission[] // Relation avec la table RolePermission
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  isActive     Boolean       @default(false)
+  role         Role          @relation(fields: [roleId], references: [id])
+  permission   Permission    @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId]) // Clé primaire composée
+
+}
+
+model Contribuable {
+  id                 String  @id @default(uuid())
+  nif                String 
+  raisonSociale      String
+  documents          String
+  quantite          Int
+  centreGestionnaire String
+  dateDepot         DateTime
+  aJour             Boolean
+  dateArriveeImmat  DateTime?
+  dateLivraisonSG   DateTime?
+  nombreJoursTraitement Int?
+  rejet             Boolean
+  motifRejet        String?
+  dateRejet         DateTime?
+  observation String?
 }
