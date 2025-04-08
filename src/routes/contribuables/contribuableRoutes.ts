@@ -1,6 +1,7 @@
-import { Elysia } from "elysia";
+import { Elysia, t } from "elysia";
 import { prisma } from "../../lib/prisma";
 import { Prisma } from "@prisma/client";
+import { differenceInDays } from "date-fns"; 
 
 type DateField = 'dateDepot' | 'dateArriveeImmat' | 'dateLivraisonSG' | 'dateRejet';
 
@@ -77,7 +78,9 @@ export const contribuableRoutes = new Elysia({ prefix: "/api" })
             documents: true,
             quantite: true,
             rejet: true,
-            observation: true
+            observation: true,
+            nombreJoursTraitement: true
+
           }
         }),
         prisma.contribuable.count({ where: filters })
@@ -99,7 +102,9 @@ export const contribuableRoutes = new Elysia({ prefix: "/api" })
           dateRejet: c.dateRejet?.toISOString().split('T')[0],
           // Formatage des booléens
           aJour: c.aJour ? 'Oui' : 'Non',
-          rejet: c.rejet ? 'Oui' : 'Non'
+          rejet: c.rejet ? 'Oui' : 'Non',
+          // Formatage du nombre de jours de traitement (optionnel)
+          nombreJoursTraitement: c.nombreJoursTraitement !== null ? c.nombreJoursTraitement : 'N/A'
         })),
         pagination: {
           total,
@@ -231,7 +236,8 @@ export const contribuableRoutes = new Elysia({ prefix: "/api" })
                     documents: "DOC1,DOC2",
                     quantite: 10,
                     rejet: "Non",
-                    observation: "Aucune"
+                    observation: "Aucune",
+                    nombreJoursTraitement: 5  // Ajout dans l'exemple
                   }
                 ],
                 pagination: {
@@ -246,4 +252,137 @@ export const contribuableRoutes = new Elysia({ prefix: "/api" })
         }
       }
     }
-  });
+  })
+// Route de mise à jour améliorée
+.put("/contribuables/:id", async ({ params, body, set }) => {
+  try {
+    const { id } = params;
+    
+    // Validation de l'ID
+    if (!id) {
+      set.status = 400;
+      return {
+        success: false,
+        message: "ID invalide"
+      };
+    }
+    
+    // Vérification si le contribuable existe
+    const existingContribuable = await prisma.contribuable.findUnique({
+      where: { id: id }
+    });
+    
+    if (!existingContribuable) {
+      set.status = 404;
+      return {
+        success: false,
+        message: "Contribuable non trouvé"
+      };
+    }
+    
+    // Préparation de l'objet de données avec uniquement les champs fournis
+    const updateData: any = {};
+    
+    // Ne mettre à jour que les champs qui sont explicitement fournis dans le corps de la requête
+    if ('nif' in body && body.nif !== undefined) updateData.nif = body.nif;
+    if ('raisonSociale' in body && body.raisonSociale !== undefined) updateData.raisonSociale = body.raisonSociale;
+    if ('centreGestionnaire' in body && body.centreGestionnaire !== undefined) updateData.centreGestionnaire = body.centreGestionnaire;
+    if ('documents' in body && body.documents !== undefined) updateData.documents = body.documents;
+    if ('motifRejet' in body && body.motifRejet !== undefined) updateData.motifRejet = body.motifRejet;
+    
+    // Gestion des champs booléens
+    if ('aJour' in body && body.aJour !== undefined) updateData.aJour = body.aJour;
+    if ('rejet' in body && body.rejet !== undefined) updateData.rejet = body.rejet;
+    
+    // Gestion des champs numériques
+    if ('quantite' in body && body.quantite !== undefined) updateData.quantite = body.quantite;
+    
+    // Variables pour stocker les dates pour le calcul ultérieur
+    let dateArriveeImmat = existingContribuable.dateArriveeImmat;
+    let dateLivraisonSG = existingContribuable.dateLivraisonSG;
+    
+    // Gestion des champs de date - ajouter seulement si ce sont des dates valides
+    if ('dateDepot' in body && body.dateDepot) {
+      const newDateDepot = new Date(body.dateDepot);
+      if (!isNaN(newDateDepot.getTime())) {
+        updateData.dateDepot = newDateDepot;
+      }
+    }
+    
+    if ('dateArriveeImmat' in body && body.dateArriveeImmat) {
+      const newDateArriveeImmat = new Date(body.dateArriveeImmat);
+      if (!isNaN(newDateArriveeImmat.getTime())) {
+        updateData.dateArriveeImmat = newDateArriveeImmat;
+        dateArriveeImmat = newDateArriveeImmat;
+      }
+    }
+    
+    if ('dateLivraisonSG' in body && body.dateLivraisonSG) {
+      const newDateLivraisonSG = new Date(body.dateLivraisonSG);
+      if (!isNaN(newDateLivraisonSG.getTime())) {
+        updateData.dateLivraisonSG = newDateLivraisonSG;
+        dateLivraisonSG = newDateLivraisonSG;
+      }
+    }
+    
+    if ('dateRejet' in body && body.dateRejet) {
+      const dateRejet = new Date(body.dateRejet);
+      if (!isNaN(dateRejet.getTime())) {
+        updateData.dateRejet = dateRejet;
+      }
+    }
+    
+    // Calcul automatique du nombre de jours de traitement entre l'arrivée à l'immatriculation et la livraison
+    if (dateArriveeImmat && dateLivraisonSG) {
+      // Calcul du nombre de jours entre l'arrivée à l'immatriculation et la livraison
+      const nombreJoursTraitement = differenceInDays(dateLivraisonSG, dateArriveeImmat);
+      updateData.nombreJoursTraitement = nombreJoursTraitement;
+    }
+    
+    // Si aucun champ à mettre à jour n'est fourni
+    if (Object.keys(updateData).length === 0) {
+      set.status = 400;
+      return {
+        success: false,
+        message: "Aucune donnée valide fournie pour la mise à jour"
+      };
+    }
+    
+    // Mise à jour du contribuable avec les données validées
+    const updatedContribuable = await prisma.contribuable.update({
+      where: { id: id },
+      data: updateData
+    });
+    
+    return {
+      success: true,
+      message: "Contribuable mis à jour avec succès",
+      data: updatedContribuable
+    };
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour:", error);
+    set.status = 500;
+    return {
+      success: false,
+      message: "Erreur lors de la mise à jour du contribuable",
+      error: error instanceof Error ? error.message : "Erreur inconnue"
+    };
+  }
+}, {
+  // Définition du schéma du corps pour la validation
+  body: t.Object({
+    nif: t.Optional(t.String()),
+    raisonSociale: t.Optional(t.String()),
+    centreGestionnaire: t.Optional(t.String()),
+    documents: t.Optional(t.String()),
+    aJour: t.Optional(t.Boolean()),
+    rejet: t.Optional(t.Boolean()),
+    quantite: t.Optional(t.Number()),
+    dateDepot: t.Optional(t.String()),
+    dateArriveeImmat: t.Optional(t.String()),
+    dateLivraisonSG: t.Optional(t.String()),
+    dateRejet: t.Optional(t.String()),
+    motifRejet: t.Optional(t.String()),
+    // Ajoutez d'autres champs que vous souhaitez autoriser à mettre à jour
+  })
+});

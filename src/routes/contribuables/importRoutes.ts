@@ -3,6 +3,7 @@ import { read, utils, type WorkBook, type WorkSheet } from "xlsx";
 import { writeFile, unlink } from "fs/promises";
 import { existsSync, mkdirSync } from "fs";
 import { PrismaClient } from "@prisma/client";
+import { differenceInDays } from "date-fns"; // Ajout de l'import pour calculer la différence en jours
 
 // Initialisation de Prisma
 const prisma = new PrismaClient();
@@ -81,6 +82,16 @@ function parseDateString(dateString: string, format: string): Date | null {
   }
   
   return null;
+}
+
+// Fonction pour calculer le nombre de jours de traitement
+function calculerNombreJoursTraitement(dateArrivee: Date | null, dateLivraison: Date | null): number | null {
+  if (!dateArrivee || !dateLivraison) {
+    return null;
+  }
+  
+  // Utiliser date-fns pour calculer la différence en jours
+  return differenceInDays(dateLivraison, dateArrivee);
 }
 
 // Route d'importation de fichier Excel
@@ -192,8 +203,6 @@ app.post("/import", async ({ body, set }) => {
       return { error: "Aucune donnée valide dans le fichier Excel." };
     }
 
-    console.log("🔍 Aperçu des données importées (3 premières lignes) :", jsonData.slice(0, 3));
-
     // Transformation des données avec le mapping des en-têtes
     const transformedData = jsonData.map(row => {
       const nif = row[headerMappings["NIF"]] !== undefined ? String(row[headerMappings["NIF"]]).trim() : "";
@@ -208,6 +217,13 @@ app.post("/import", async ({ body, set }) => {
       const docValue = row[headerMappings["Document demandé"]];
       console.log("📄 Valeur document brute:", docValue, "Type:", typeof docValue);
 
+      // Récupérer les dates pour calculer le nombre de jours de traitement
+      const dateArriveeImmat = parseExcelDate(row[headerMappings["DATE D'ARRIVE A IMMAT"]]);
+      const dateLivraisonSG = parseExcelDate(row[headerMappings["DATE DE LIVRAISON AU SERVI. GESTIONNAIRE"]]);
+      
+      // Calculer le nombre de jours de traitement
+      const nombreJoursTraitement = calculerNombreJoursTraitement(dateArriveeImmat, dateLivraisonSG);
+
       return {
         dateDepot: parseExcelDate(row[headerMappings["DATE DE DEPOT"]]) || new Date(),
         aJour: String(row[headerMappings["LE CONTRIBUABLE EST-IL A JOUR LORS DU DEPOT?"]]).toLowerCase() === "oui",
@@ -216,8 +232,9 @@ app.post("/import", async ({ body, set }) => {
         documents: docValue !== undefined && docValue !== null ? String(docValue).trim() : "",
         quantite: isNaN(Number(row[headerMappings["Quantité"]])) ? 0 : Number(row[headerMappings["Quantité"]]),
         centreGestionnaire: String(row[headerMappings["CENTRE GESTIONNAIRE"]] || "").trim(),
-        dateArriveeImmat: parseExcelDate(row[headerMappings["DATE D'ARRIVE A IMMAT"]]),
-        dateLivraisonSG: parseExcelDate(row[headerMappings["DATE DE LIVRAISON AU SERVI. GESTIONNAIRE"]]),
+        dateArriveeImmat,
+        dateLivraisonSG,
+        nombreJoursTraitement, // Ajout du nombre de jours de traitement
         rejet: String(row[headerMappings["REJET"]]).toLowerCase() === "oui",
         observation: row[headerMappings["OBSERVATION"]] ? String(row[headerMappings["OBSERVATION"]]).trim() : null
       };
