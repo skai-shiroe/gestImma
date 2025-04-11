@@ -27,6 +27,7 @@ const app = new Elysia()
         },
         tags: [
           { name: "Auth", description: "Authentification des utilisateurs" },
+          { name: "Role", description: "Gestion des roles et permission" },
           { name: "Import", description: "Importation de fichiers Excel" },
           { name: "Contribuables", description: "Gestion des contribuables" },
         ],

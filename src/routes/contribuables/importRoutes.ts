@@ -272,7 +272,12 @@ app.post("/import", async ({ body, set }) => {
       await unlink(tempPath).catch(e => console.error("❌ Erreur de suppression du fichier temporaire :", e));
     }
   }
+}, {
+  detail: {
+    tags: ['Import'],
+    summary: 'Importer des contribuables depuis un fichier Excel',
+    description: 'Permet d\'importer des données de contribuables à partir d\'un fichier Excel'
+  }
 });
 
-// Exporter la route d'importation
 export const importRoute = app;
