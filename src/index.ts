@@ -4,6 +4,7 @@ import { cors } from "@elysiajs/cors"; // Add this import
 import { authRoutes } from "../src/routes/Auth/authRoutes";
 import { importRoute } from "../src/routes/contribuables/importRoutes";
 import { contribuableRoutes } from "./routes/contribuables/contribuableRoutes";
+export { app }
 
 const app = new Elysia()
   // Add CORS configuration
